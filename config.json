@@ -1,0 +1,89 @@
+{
+    "name": "Data Resolution Reminder",
+    "description": "Send Email Reminders for existing Data Queries that need to be completed",
+    "namespace": "UWMadison\\DataResolutionReminder",
+    "authors": [
+        {
+            "name": "Adam Nunez",
+            "email": "Adam.Nunez@ctri.wisc.edu",
+            "institution": "UW Madison - Center for Tobacco Research and Intervention "
+        }
+    ],
+    "framework-version": 5,
+    "permissions": [
+        "redcap_every_page_top"
+    ],
+    "project-settings": [
+        {
+             "key": "group",
+             "name": "<b>Notification Group</b>",
+             "type": "sub_settings",
+             "repeatable": true,
+             "sub_settings":[
+                {
+                    "key": "user",
+                    "name": "<b>Notify User(s)</b>",
+                    "type": "user-list",
+                    "repeatable":true
+                },
+                {
+                    "key": "days",
+                    "name": "<b>Send reminder after ___ days</b>",
+                    "type": "text"
+                },
+                {
+                    "key": "frequency",
+                    "name": "<b>Frequency of reminder</b>",
+                    "type": "radio",
+                    "choices": [
+                        {
+                            "name": "Once",
+                            "value": 0
+                        },
+                        {
+                            "name": "Daily",
+                            "value": 1
+                        },
+                        {
+                            "name": "Weekly",
+                            "value": 7
+                        }
+                    ]
+                },
+                {
+                    "key": "condition",
+                    "name": "<b>Send reminder if</b>",
+                    "type": "radio",
+                    "choices": [
+                        {
+                            "name": "A user above has an incomplete data query<br>assigned to them",
+                            "value": 1
+                        },
+                        {
+                            "name": "Any user in the project has an incomplete data query",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "key": "sent",
+                    "name": "Most Recent Reminder",
+                    "type": "text",
+                    "hidden": true
+                }
+            ]
+        }
+    ],
+   "crons": [
+      {
+         "cron_name": "reminders",
+         "cron_description": "Check for reminders that need to be sent",
+         "method": "checkForReminders",
+         "cron_frequency": "3600",
+         "cron_max_run_time": "600"
+      }
+    ],
+    "compatibility": {
+        "redcap-version-min": "10.0.0"
+    }
+}
