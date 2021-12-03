@@ -9,14 +9,14 @@ class DataResolutionReminder extends AbstractExternalModule {
     /*
      *Redcap hook to load for config page to cleanup the EM's menu
      */
-    public function redcap_every_page_top ( $project_id ) {
+    public function redcap_every_page_top ( $project_id ) { 
         if (strpos(PAGE, 'manager/project.php') !== false && $project_id != NULL) {
             echo "<script src={$this->getUrl("config.js")}></script>";
         }
     }
     
     /*
-     *Redcap cron for core functionality 
+     *Redcap cron for core functionality, this whole EM is kinda just a cron job
      */
     public function checkForReminders($cronInfo) {
         
@@ -29,6 +29,8 @@ class DataResolutionReminder extends AbstractExternalModule {
             
             // Act like we are in that project and get settings
             $_GET['pid'] = $pid;
+            $link = "https://{$_SERVER["SERVER_NAME"]}/redcap/redcap_v".REDCAP_VERSION."/index.php?pid={$pid}";
+            $projectName = Redcap::getProjectTitle; // TODO same issue as getUsers 
             $settings = $this->getProjectSettings();
             $sentSetting = $settings['sent'];
             
@@ -37,7 +39,7 @@ class DataResolutionReminder extends AbstractExternalModule {
                 SELECT ui_id, username, user_email
                 FROM redcap_user_information 
                 WHERE username IN (?)',
-                ['"'.implode('","',Redcap::getUsers()).'"']);
+                ['"'.implode('","',Redcap::getUsers()).'"']); // TODO getUsers needs PROJECT_ID constant and we can't redefine it
             $projectUsers = [];
             while($row = $result->fetch_assoc()){
                 $projectUsers[$row['username']] = [
@@ -80,14 +82,14 @@ class DataResolutionReminder extends AbstractExternalModule {
                 
                 // If any user on the project has an open data query
                 if ( $condition == 2 ) {
-                    $result = $this->query($sql,['"'.implode('","',array_values($projectUsers)).'"']);
+                    $result = $this->query($sql,['"'.implode('","',array_values($userIds)).'"']);
                 }
                 
                 // Check if enough time has passed sense the DQ was opened ($days)
                 $sendEmail = false;
                 while($row = $result->fetch_assoc()){
                     if ( $now < date("Y-m-d h:i", strtotime($row['ts'] . " + $days days")) ) {
-                        sendEmail = true;
+                        $sendEmail = true;
                         break;
                     }
                 }
@@ -98,7 +100,8 @@ class DataResolutionReminder extends AbstractExternalModule {
                         $to = $projectUsers[$user]['email'];
                         $from = ""; // TODO
                         $subject = "[REDCap] Data query reminder";
-                        $msg = "There are open data queries in the REDCap project \"PROJECT NAME WITH LINK\" that need to be addressed."; // TODO
+                        $projLink = "<a link=\"$link\">\"$projectName\"</a>";
+                        $msg = "There are open data queries in the REDCap project $projLink that need to be addressed.";
                         REDCap::email($to, $from, $subject, $msg);
                     }
                     $sentSetting[$index] = $now;
@@ -111,7 +114,6 @@ class DataResolutionReminder extends AbstractExternalModule {
         // Put the pid back the way it was before this cron job
         // likely doesn't matter, but is good housekeeping practice
         $_GET['pid'] = $originalPid;
-
         return "The \"{$cronInfo['cron_description']}\" cron job completed successfully.";
     }
 }
