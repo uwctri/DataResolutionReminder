@@ -3,6 +3,7 @@
 namespace UWMadison\DataResolutionReminder;
 use ExternalModules\AbstractExternalModule;
 use Redcap;
+use User;
 
 class DataResolutionReminder extends AbstractExternalModule {
     
@@ -30,16 +31,17 @@ class DataResolutionReminder extends AbstractExternalModule {
             // Act like we are in that project and get settings
             $_GET['pid'] = $pid;
             $link = "https://{$_SERVER["SERVER_NAME"]}/redcap/redcap_v".REDCAP_VERSION."/index.php?pid={$pid}";
-            $projectName = Redcap::getProjectTitle; // TODO same issue as getUsers 
+            $projectName = Redcap::getProjectTitle(); // TODO This just reutnrs app_title which isn't set :\
             $settings = $this->getProjectSettings();
             $sentSetting = $settings['sent'];
             
             // Gather User IDs and reformat
+            $users = User::getProjectUsernames(null,false,$pid);
             $result = $this->query('
                 SELECT ui_id, username, user_email
                 FROM redcap_user_information 
                 WHERE username IN (?)',
-                ['"'.implode('","',Redcap::getUsers()).'"']); // TODO getUsers needs PROJECT_ID constant and we can't redefine it
+                ['"'.implode('","',$users).'"']); 
             $projectUsers = [];
             while($row = $result->fetch_assoc()){
                 $projectUsers[$row['username']] = [
