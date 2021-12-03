@@ -83,10 +83,13 @@ class DataResolutionReminder extends AbstractExternalModule {
                     $result = $this->query($sql,['"'.implode('","',array_values($projectUsers)).'"']);
                 }
                 
-                // Check if enought time has passed sense the DQ was opened ($days)
+                // Check if enough time has passed sense the DQ was opened ($days)
                 $sendEmail = false;
                 while($row = $result->fetch_assoc()){
-                    // TODO
+                    if ( $now < date("Y-m-d h:i", strtotime($row['ts'] . " + $days days")) ) {
+                        sendEmail = true;
+                        break;
+                    }
                 }
                 
                 // Update the project setting as sent now
