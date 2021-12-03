@@ -47,6 +47,10 @@
                         {
                             "name": "Weekly",
                             "value": 7
+                        },
+                        {
+                            "name": "Monthly",
+                            "value": 30
                         }
                     ]
                 },
@@ -79,7 +83,7 @@
          "cron_name": "reminders",
          "cron_description": "Check for reminders that need to be sent",
          "method": "checkForReminders",
-         "cron_frequency": "3600",
+         "cron_frequency": "14400",
          "cron_max_run_time": "600"
       }
     ],
