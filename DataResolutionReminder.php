@@ -23,17 +23,26 @@ class DataResolutionReminder extends AbstractExternalModule {
         
         // Stash original PID, probably not needed, but docs recommend
         $originalPid = $_GET['pid'];
+        
+        // Constants across all pids
         $now = date("Y-m-d h:i");
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' 
+            || $_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
         
         // Loop over every pid using this EM
         foreach($this->getProjectsWithModuleEnabled() as $pid) {
             
-            // Act like we are in that project and get settings
+            // Act like we are in that project and get settings/projectName
             $_GET['pid'] = $pid;
-            $link = "https://{$_SERVER["SERVER_NAME"]}/redcap/redcap_v".REDCAP_VERSION."/index.php?pid={$pid}";
-            $projectName = Redcap::getProjectTitle(); // TODO This just reutnrs app_title which isn't set :\
+            $link = "{$protocol}://{$_SERVER["SERVER_NAME"]}/redcap/redcap_v".REDCAP_VERSION."/index.php?pid={$pid}";
+            $sql = 'SELECT app_title
+                    FROM redcap_projects
+                    WHERE project_id = (?)';
+            $result = $this->query($sql, [$pid]);  // getProjectTitle doesn't work in crons
+            $projectName = $result->fetch_assoc()['app_title'];
             $settings = $this->getProjectSettings();
             $sentSetting = $settings['sent'];
+            $$updateProjectSetting = false;
             
             // Gather User IDs and reformat
             $users = User::getProjectUsernames(null,false,$pid);
@@ -69,6 +78,7 @@ class DataResolutionReminder extends AbstractExternalModule {
                     continue; // Not enough time has passed to send the next reminder
                 }
                 
+                // Prep for our query to find open DQs
                 $sql = 'SELECT ts, user_id, comment
                         FROM redcap_data_quality_resolutions 
                         WHERE current_query_status = "OPEN" 
@@ -87,7 +97,7 @@ class DataResolutionReminder extends AbstractExternalModule {
                     $result = $this->query($sql,['"'.implode('","',array_values($userIds)).'"']);
                 }
                 
-                // Check if enough time has passed sense the DQ was opened ($days)
+                // Check if enough time has passed sense the DQ was opened
                 $sendEmail = false;
                 while($row = $result->fetch_assoc()){
                     if ( $now < date("Y-m-d h:i", strtotime($row['ts'] . " + $days days")) ) {
@@ -96,7 +106,7 @@ class DataResolutionReminder extends AbstractExternalModule {
                     }
                 }
                 
-                // Update the project setting as sent now
+                // Send the email and set flag to save
                 if ( $sendEmail ) {
                     foreach ( $userList as $user ) {
                         $to = $projectUsers[$user]['email'];
@@ -106,11 +116,16 @@ class DataResolutionReminder extends AbstractExternalModule {
                         $msg = "There are open data queries in the REDCap project $projLink that need to be addressed.";
                         REDCap::email($to, $from, $subject, $msg);
                     }
-                    $sentSetting[$index] = $now;
-                    $this->setProjectSetting("sent",$sentSetting);
+                    $sentSetting[$index] = $now; 
+                    $updateProjectSetting = true;
                 }
             }
             
+            // We've flipped through all of the userLits in the project
+            // Update the project setting if anything was sent
+            if ( $updateProjectSetting ) {
+                $this->setProjectSetting("sent",$sentSetting);
+            }
         }
 
         // Put the pid back the way it was before this cron job
