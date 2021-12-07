@@ -37,7 +37,7 @@ class DataResolutionReminder extends AbstractExternalModule {
             $link = "{$protocol}://{$_SERVER["SERVER_NAME"]}/redcap/redcap_v".REDCAP_VERSION."/index.php?pid={$pid}";
             $sql = 'SELECT app_title
                     FROM redcap_projects
-                    WHERE project_id = (?)';
+                    WHERE project_id = ?';
             $result = $this->query($sql, [$pid]);  // getProjectTitle doesn't work in crons
             $projectName = $result->fetch_assoc()['app_title'];
             $settings = $this->getProjectSettings();
@@ -46,11 +46,10 @@ class DataResolutionReminder extends AbstractExternalModule {
             
             // Gather User IDs and reformat
             $users = User::getProjectUsernames(null,false,$pid);
-            $result = $this->query('
-                SELECT ui_id, username, user_email
-                FROM redcap_user_information 
-                WHERE username IN (?)',
-                ['"'.implode('","',$users).'"']); 
+            $sql = 'SELECT ui_id, username, user_email
+                    FROM redcap_user_information 
+                    WHERE username IN (?)';
+            $result = $this->query($sql,['"'.implode('","',$users).'"']); 
             $projectUsers = [];
             while($row = $result->fetch_assoc()){
                 $projectUsers[$row['username']] = [
@@ -58,6 +57,17 @@ class DataResolutionReminder extends AbstractExternalModule {
                     'email' => $row['user_email']
                 ];
             }
+            
+            // Gather all valid Status IDs for project ID
+            $sql = 'SELECT status_id 
+                    FROM redcap_data_quality_status 
+                    WHERE project_id = ?';
+            $result = $this->query($sql, [$pid]);
+            $statusIDs = [];
+            while($row = $result->fetch_assoc()){
+                $statusIDs[] = $row['status_id'];
+            }
+            $statusIDs = implode(',',$statusIDs);
             
             // Loop over the user lists and conditionally send emails
             foreach($settings['user'] as $index => $userList) {
@@ -82,19 +92,19 @@ class DataResolutionReminder extends AbstractExternalModule {
                 $sql = 'SELECT ts, user_id, comment
                         FROM redcap_data_quality_resolutions 
                         WHERE current_query_status = "OPEN" 
-                        AND user_id in (?)';
+                        AND user_id IN (?) AND status_id IN (?)';
                 $userIds = array_combine(array_keys($projectUsers),array_column($projectUsers, 'id'));
                 $result = [];
                 
                 // If user in the list has open data query
                 if ( $condition == 1 ) {
                     $fUsers = array_values(array_intersect_key($userIds, array_flip($userList)));
-                    $result = $this->query($sql,['"'.implode('","',$fUsers).'"']);
+                    $result = $this->query($sql,['"'.implode('","',$fUsers).'"',$statusIDs]);
                 }
                 
                 // If any user on the project has an open data query
                 if ( $condition == 2 ) {
-                    $result = $this->query($sql,['"'.implode('","',array_values($userIds)).'"']);
+                    $result = $this->query($sql,['"'.implode('","',array_values($userIds)).'"',$statusIDs]);
                 }
                 
                 // Check if enough time has passed sense the DQ was opened
