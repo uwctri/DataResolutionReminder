@@ -110,7 +110,7 @@ class DataResolutionReminder extends AbstractExternalModule {
                 if ( $sendEmail ) {
                     foreach ( $userList as $user ) {
                         $to = $projectUsers[$user]['email'];
-                        $from = ""; // TODO
+                        $from = $project_contact_email;
                         $subject = "[REDCap] Data query reminder";
                         $projLink = "<a link=\"$link\">\"$projectName\"</a>";
                         $msg = "There are open data queries in the REDCap project $projLink that need to be addressed.";
