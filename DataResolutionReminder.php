@@ -11,14 +11,9 @@ class DataResolutionReminder extends AbstractExternalModule {
      *Redcap hook to load for config page to cleanup the EM's menu
      */
     public function redcap_every_page_top ( $project_id ) { 
-        $this->checkForReminders($project_id, ""); #TODO
         if (strpos(PAGE, 'manager/project.php') !== false && $project_id != NULL) {
             echo "<script src={$this->getUrl("config.js")}></script>";
         }
-    }
-    
-    private function print_to_screen( $str ) {
-        ?><script>console.log(<?=json_encode($str); ?>);</script><?php
     }
     
     /*
@@ -71,8 +66,8 @@ class DataResolutionReminder extends AbstractExternalModule {
         $users = '"'.implode('","',$users).'"';
         $sql = 'SELECT ui_id, username, user_email
                 FROM redcap_user_information
-                WHERE username IN ('.$users.')'; // This breaks when passing $users as an arg
-        $result = $this->query($sql,[]);
+                WHERE username IN ('.$users.')'; // TODO - Breaks when passing params
+        $result = $this->query($sql, []);
         $projectUsers = [];
         while($row = $result->fetch_assoc()){
             $projectUsers[$row['username']] = [
@@ -115,25 +110,27 @@ class DataResolutionReminder extends AbstractExternalModule {
             $sql = 'SELECT ts, user_id, comment
                     FROM redcap_data_quality_resolutions 
                     WHERE current_query_status = "OPEN" 
-                    AND user_id IN (?) AND status_id IN (?)';
+                    AND status_id IN ('.$statusIDs.') AND user_id IN ';
             $userIds = array_combine(array_keys($projectUsers),array_column($projectUsers, 'id'));
             $result = [];
             
             // If user in the list has open data query
             if ( $condition == 1 ) {
-                $fUsers = array_values(array_intersect_key($userIds, array_flip($userList)));
-                $result = $this->query($sql,['"'.implode('","',$fUsers).'"',$statusIDs]);
+                $userIds = array_values(array_intersect_key($userIds, array_flip($userList)));
+                $userIds = '("'.implode('","',$userIds).'")';
+                $result = $this->query($sql.$userIds,[]); // TODO Same issue as above
             }
             
             // If any user on the project has an open data query
             if ( $condition == 2 ) {
-                $result = $this->query($sql,['"'.implode('","',array_values($userIds)).'"',$statusIDs]);
+                $userIds = '("'.implode('","',array_values($userIds)).'")';
+                $result = $this->query($sql.$userIds,[]); // TODO Same issue as above
             }
             
             // Check if enough time has passed sense the DQ was opened
             $sendEmail = false;
             while($row = $result->fetch_assoc()){
-                if ( $now < date("Y-m-d h:i", strtotime($row['ts'] . " + $days days")) ) {
+                if ( $now > date("Y-m-d h:i", strtotime($row['ts'] . " + $days days")) ) {
                     $sendEmail = true;
                     break;
                 }
@@ -163,3 +160,4 @@ class DataResolutionReminder extends AbstractExternalModule {
 }
 
 ?>
+ 
