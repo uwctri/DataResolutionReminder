@@ -11,9 +11,14 @@ class DataResolutionReminder extends AbstractExternalModule {
      *Redcap hook to load for config page to cleanup the EM's menu
      */
     public function redcap_every_page_top ( $project_id ) { 
+        $this->checkForReminders($project_id, ""); #TODO
         if (strpos(PAGE, 'manager/project.php') !== false && $project_id != NULL) {
             echo "<script src={$this->getUrl("config.js")}></script>";
         }
+    }
+    
+    private function print_to_screen( $str ) {
+        ?><script>console.log(<?=json_encode($str); ?>);</script><?php
     }
     
     /*
@@ -48,24 +53,26 @@ class DataResolutionReminder extends AbstractExternalModule {
      */
     private function checkForReminders( $project_id, $project_link ) {
         
-        // Gather project settings and title
-        $sql = 'SELECT app_title
-                FROM redcap_projects
-                WHERE project_id = ?';
-        $result = $this->query($sql, [$project_id]);  // getProjectTitle doesn't work in crons
-        $projectName = $result->fetch_assoc()['app_title'];
+        // Gather project settings
         $settings = $this->getProjectSettings();
         $sentSetting = $settings['sent'];
         $updateProjectSetting = false;
         $now = date("Y-m-d h:i");
         
+        // Fetch project title (getProjectTitle doesn't work in crons)
+        $sql = 'SELECT app_title
+                FROM redcap_projects
+                WHERE project_id = ?';
+        $result = $this->query($sql, [$project_id]);
+        $projectName = $result->fetch_assoc()['app_title'];
+        
         // Gather User IDs and reformat
         $users = User::getProjectUsernames(null,false,$project_id);
         $users = '"'.implode('","',$users).'"';
         $sql = 'SELECT ui_id, username, user_email
-                FROM redcap_user_information 
-                WHERE username IN (?)';
-        $result = $this->query($sql,[$users]); 
+                FROM redcap_user_information
+                WHERE username IN ('.$users.')'; // This breaks when passing $users as an arg
+        $result = $this->query($sql,[]);
         $projectUsers = [];
         while($row = $result->fetch_assoc()){
             $projectUsers[$row['username']] = [
@@ -100,7 +107,7 @@ class DataResolutionReminder extends AbstractExternalModule {
                 continue; // Send only once, skip
             }
             
-            if ( $sent != "" && $now > date('Y-m-d h:i', strtotime($sent . " + $freq days")) ) {
+            if ( $sent != "" && $now > date('Y-m-d h:i', strtotime("$sent + $freq days")) ) {
                 continue; // Not enough time has passed to send the next reminder
             }
             
