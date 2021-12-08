@@ -82,7 +82,7 @@
       {
          "cron_name": "reminders",
          "cron_description": "Check for reminders that need to be sent",
-         "method": "checkForReminders",
+         "method": "cron",
          "cron_frequency": "14400",
          "cron_max_run_time": "600"
       }
