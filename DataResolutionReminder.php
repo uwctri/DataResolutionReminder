@@ -102,7 +102,7 @@ class DataResolutionReminder extends AbstractExternalModule {
                 continue; // Send only once, skip
             }
             
-            if ( $sent != "" && $now > date('Y-m-d h:i', strtotime("$sent + $freq days")) ) {
+            if ( $sent != "" && $now < date('Y-m-d h:i', strtotime("$sent + $freq days")) ) {
                 continue; // Not enough time has passed to send the next reminder
             }
             
