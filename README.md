@@ -19,4 +19,4 @@ Configuration is simple:
 
 ## Call Outs
 
-* Todo - Add support for DAGs rather than users
+* None yet
