@@ -11,6 +11,7 @@ class DataResolutionReminder extends AbstractExternalModule {
      *Redcap hook to load for config page to cleanup the EM's menu
      */
     public function redcap_every_page_top ( $project_id ) { 
+        $this->checkForReminders($project_id, "");
         if (strpos(PAGE, 'manager/project.php') !== false && $project_id != NULL) {
             echo "<script src={$this->getUrl("config.js")}></script>";
         }
@@ -93,6 +94,7 @@ class DataResolutionReminder extends AbstractExternalModule {
             $days = $settings['condition'][$index];
             $freq = $settings['frequency'][$index];
             $sent = $settings['sent'][$index];
+            $dag = $settings['dag'][$index];
             
             if ( empty($condition) || empty($days) || empty($freq) || empty($userList) ) {
                 continue; // We need every setting
@@ -105,6 +107,20 @@ class DataResolutionReminder extends AbstractExternalModule {
             if ( $sent != "" && $now < date('Y-m-d h:i', strtotime("$sent + $freq days")) ) {
                 continue; // Not enough time has passed to send the next reminder
             }
+            
+            // Expand userList to include those in DAGs
+            if ( !empty($dag) ) {
+                $sql = 'SELECT username 
+                        FROM redcap_data_access_groups_users 
+                        WHERE group_id IN ('.$dag.')'; // TODO Samme issue as above
+                $result = $this->query($sql, []);
+                while($row = $result->fetch_assoc()){
+                    $userList[] = $row['username'];
+                }
+            }
+            
+            // Remove any duplicates from the user list
+            $userList = array_unique($userList);
             
             // Prep for our query to find open DQs
             $sql = 'SELECT ts, user_id, comment

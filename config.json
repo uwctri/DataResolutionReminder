@@ -27,6 +27,12 @@
                     "repeatable":true
                 },
                 {
+                    "key": "dag",
+                    "name": "<b>Notify DAG(s)</b>",
+                    "type": "dag-list",
+                    "repeatable":true
+                },
+                {
                     "key": "days",
                     "name": "<b>Send reminder after ___ days</b>",
                     "type": "text"
