@@ -110,9 +110,10 @@ class DataResolutionReminder extends AbstractExternalModule {
             
             // Expand userList to include those in DAGs
             if ( !empty($dag) ) {
+                $dag = implode(',',$dag);
                 $sql = 'SELECT username 
                         FROM redcap_data_access_groups_users 
-                        WHERE group_id IN ('.$dag.')'; // TODO Samme issue as above
+                        WHERE group_id IN ('.$dag.')'; // TODO Same issue as above
                 $result = $this->query($sql, []);
                 while($row = $result->fetch_assoc()){
                     $userList[] = $row['username'];
