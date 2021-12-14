@@ -76,6 +76,11 @@
                     ]
                 },
                 {
+                    "key": "comment",
+                    "name": "<b>Send comment text:</b><br>(May contain PHI)",
+                    "type": "checkbox"
+                },
+                {
                     "key": "sent",
                     "name": "Most Recent Reminder",
                     "type": "text",

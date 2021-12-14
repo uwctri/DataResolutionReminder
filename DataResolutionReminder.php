@@ -95,6 +95,7 @@ class DataResolutionReminder extends AbstractExternalModule {
             $freq = $settings['frequency'][$index];
             $sent = $settings['sent'][$index];
             $dag = $settings['dag'][$index];
+            $sendComment = $settings['comment'][$index];
             
             if ( empty($condition) || empty($days) || empty($freq) || empty($userList) ) {
                 continue; // We need every setting
@@ -146,10 +147,15 @@ class DataResolutionReminder extends AbstractExternalModule {
             
             // Check if enough time has passed sense the DQ was opened
             $sendEmail = false;
+            $comments = [];
             while($row = $result->fetch_assoc()){
                 if ( $now > date("Y-m-d h:i", strtotime($row['ts'] . " + $days days")) ) {
                     $sendEmail = true;
-                    break;
+                    if ( !$sendComment ) {
+                        break;
+                    } else {
+                        $comments[] = $row['comment'];
+                    }
                 }
             }
             
@@ -159,8 +165,14 @@ class DataResolutionReminder extends AbstractExternalModule {
                     $to = $projectUsers[$user]['email'];
                     $from = $project_contact_email;
                     $subject = "[REDCap] Data query reminder";
-                    $project_link = "<a link=\"$project_link\">\"$projectName\"</a>";
-                    $msg = "There are open data queries in the REDCap project $project_link that need to be addressed.";
+                    //$project_link = "<a link=\"$project_link\">\"$projectName\"</a>";
+                    $msg = "There are open data queries in the REDCap project \"$projectName\" that need to be addressed.";
+                    if ( !empty($comments) ) {
+                        $msg = "$msg\n\nData Query Comments:\n";
+                        foreach ( $comments as $comment ) {
+                            $msg = "$msg\t$comment\n";
+                        }
+                    }
                     REDCap::email($to, $from, $subject, $msg);
                 }
                 $sentSetting[$index] = $now; 
