@@ -94,7 +94,7 @@ class DataResolutionReminder extends AbstractExternalModule {
             $days = $settings['condition'][$index];
             $freq = $settings['frequency'][$index];
             $sent = $settings['sent'][$index];
-            $dag = $settings['dag'][$index];
+            $dag = array_filter($settings['dag'][$index]);
             $sendComment = $settings['comment'][$index];
             
             if ( empty($condition) || empty($days) || empty($freq) || empty($userList) ) {
@@ -122,7 +122,7 @@ class DataResolutionReminder extends AbstractExternalModule {
             }
             
             // Remove any duplicates from the user list
-            $userList = array_unique($userList);
+            $userList = array_filter(array_unique($userList));
             
             // Prep for our query to find open DQs
             $sql = 'SELECT ts, user_id, comment
@@ -165,12 +165,12 @@ class DataResolutionReminder extends AbstractExternalModule {
                     $to = $projectUsers[$user]['email'];
                     $from = $project_contact_email;
                     $subject = "[REDCap] Data query reminder";
-                    //$project_link = "<a link=\"$project_link\">\"$projectName\"</a>";
-                    $msg = "There are open data queries in the REDCap project \"$projectName\" that need to be addressed.";
+                    $link = "<a href=\"$project_link\">$projectName</a>";
+                    $msg = "There are open data queries in the REDCap project \"$link\" that need to be addressed.";
                     if ( !empty($comments) ) {
-                        $msg = "$msg\n\nData Query Comments:\n";
+                        $msg = "$msg<br><br>Data Query Comments:<br>";
                         foreach ( $comments as $comment ) {
-                            $msg = "$msg\t$comment\n";
+                            $msg = "$msg<p style='margin-left: 2em'>$comment</p>";
                         }
                     }
                     REDCap::email($to, $from, $subject, $msg);
