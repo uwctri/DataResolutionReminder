@@ -12,7 +12,7 @@ This EM isn't yet available to install via redcap's EM database so you'll need t
 
 Configuration is simple: 
 
-1. Define users to notify
+1. Define users and/or DAG groups to notify
 2. Set number of days after the query is created to send the reminder
 3. Should the reminder be sent once, daily, or weekly?
 4. Should the reminder be sent for any user on the project, or only a specifc group/single user.
