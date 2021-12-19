@@ -33,7 +33,7 @@ class DataResolutionReminder extends AbstractExternalModule {
             
             // Act like we are in that project, make a link, call core function
             $_GET['pid'] = $pid;
-            $link = "{$protocol}://".$_SERVER["SERVER_NAME"]."/redcap/redcap_v".REDCAP_VERSION."/DataQuality/resolve.php?pid={$pid}&status_type=OPEN";
+            $link = "{$protocol}://".$_SERVER['HTTP_HOST']."/redcap/redcap_v".REDCAP_VERSION."/DataQuality/resolve.php?pid={$pid}&status_type=OPEN";
             $this->checkForReminders( $pid, $link );
         }
 
