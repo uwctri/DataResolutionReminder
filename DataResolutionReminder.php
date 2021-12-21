@@ -65,12 +65,14 @@ class DataResolutionReminder extends AbstractExternalModule {
         $projectName = $result->fetch_assoc()['app_title'];
         
         // Gather User IDs and reformat
-        $users = User::getProjectUsernames(null,false,$project_id);
-        $users = '"'.implode('","',$users).'"';
-        $sql = 'SELECT ui_id, username, user_email
-                FROM redcap_user_information
-                WHERE username IN ('.$users.')'; // ISSUE - Breaks when params passed via query
-        $result = $this->query($sql, []);
+        $users = array_values(User::getProjectUsernames(null,false,$project_id));
+        $query = $this->createQuery();
+        $query->add('
+            SELECT ui_id, username, user_email
+            FROM redcap_user_information
+            WHERE');
+        $query->addInClause('username', $users);
+        $result = $query->execute();
         $projectUsers = [];
         while($row = $result->fetch_assoc()){
             $projectUsers[$row['username']] = [
@@ -88,7 +90,6 @@ class DataResolutionReminder extends AbstractExternalModule {
         while($row = $result->fetch_assoc()){
             $statusIDs[] = $row['status_id'];
         }
-        $statusIDs = implode(',',$statusIDs);
         
         // Loop over the user lists and conditionally send emails
         foreach($settings['user'] as $index => $userList) {
@@ -113,11 +114,13 @@ class DataResolutionReminder extends AbstractExternalModule {
             
             // Expand userList to include those in DAGs
             if ( !empty($dag) ) {
-                $dag = implode(',',$dag);
-                $sql = 'SELECT username 
-                        FROM redcap_data_access_groups_users 
-                        WHERE group_id IN ('.$dag.')'; // ISSUE as above
-                $result = $this->query($sql, []);
+                $query = $this->createQuery();
+                $query->add('
+                    SELECT username 
+                    FROM redcap_data_access_groups_users 
+                    WHERE');
+                $query->addInClause('group_id', $dag);
+                $result = $query->execute();
                 while($row = $result->fetch_assoc()){
                     $userList[] = $row['username'];
                 }
@@ -127,24 +130,27 @@ class DataResolutionReminder extends AbstractExternalModule {
             $userList = array_filter(array_unique($userList));
             
             // Prep for our query to find open DQs
-            $sql = 'SELECT ts, user_id, comment
-                    FROM redcap_data_quality_resolutions 
-                    WHERE current_query_status = "OPEN" 
-                    AND status_id IN ('.$statusIDs.') AND user_id IN ';
+            $query = $this->createQuery();
+            $query->add('
+                SELECT ts, user_id, comment
+                FROM redcap_data_quality_resolutions 
+                WHERE current_query_status = "OPEN" AND');
+            $query->addInClause('status_id', $statusIDs)->add('AND');
+
             $userIds = array_combine(array_keys($projectUsers),array_column($projectUsers, 'id'));
             $result = [];
             
             // If user in the list has open data query
             if ( $condition == 1 ) {
                 $userIds = array_values(array_intersect_key($userIds, array_flip($userList)));
-                $userIds = '("'.implode('","',$userIds).'")';
-                $result = $this->query($sql.$userIds,[]); // ISSUE as above
+                $query->addInClause('user_id', $userIds);
+                $result = $query->execute();
             }
             
             // If any user on the project has an open data query
             if ( $condition == 2 ) {
-                $userIds = '("'.implode('","',array_values($userIds)).'")';
-                $result = $this->query($sql.$userIds,[]); // ISSUE as above
+                $query->addInClause('user_id', $userIds);
+                $result = $query->execute();
             }
             
             // Check if enough time has passed sense the DQ was opened
