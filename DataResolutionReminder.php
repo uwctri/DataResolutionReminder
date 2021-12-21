@@ -24,16 +24,19 @@ class DataResolutionReminder extends AbstractExternalModule {
         // Stash original PID, probably not needed, but docs recommend
         $originalPid = $_GET['pid'];
         
-        // Get server http(s)
+        // Get server info
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' 
             || $_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
+        $server = array($_SERVER["SERVER_NAME"],$_SERVER["HTTP_HOST"],$_SERVER["INSTANCE_NAME"],$_SERVER["APP_POOL_ID"]);
+        $server = reset(array_filter($server));
+        $server = empty($server) ? "NO.SERVER.NAME" : strtolower($server);
         
         // Loop over every pid using this EM
         foreach($this->getProjectsWithModuleEnabled() as $pid) {
             
             // Act like we are in that project, make a link, call core function
             $_GET['pid'] = $pid;
-            $link = "{$protocol}://".$_SERVER['HTTP_HOST']."/redcap/redcap_v".REDCAP_VERSION."/DataQuality/resolve.php?pid={$pid}&status_type=OPEN";
+            $link = "{$protocol}://$server/redcap/redcap_v".REDCAP_VERSION."/DataQuality/resolve.php?pid=$pid&status_type=OPEN";
             $this->checkForReminders( $pid, $link );
         }
 
