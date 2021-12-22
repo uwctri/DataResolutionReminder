@@ -76,8 +76,8 @@
                     ]
                 },
                 {
-                    "key": "comment",
-                    "name": "<b>Send comment text:</b><br>(May contain PHI)",
+                    "key": "details",
+                    "name": "<b>Send data query details:</b><br>(May contain PHI)",
                     "type": "checkbox"
                 },
                 {

@@ -24,22 +24,18 @@ class DataResolutionReminder extends AbstractExternalModule {
         // Stash original PID, probably not needed, but docs recommend
         $originalPid = $_GET['pid'];
         
-        // Get server info
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' 
-            || $_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
-        $server = array($_SERVER["SERVER_NAME"],$_SERVER["HTTP_HOST"],$_SERVER["INSTANCE_NAME"],$_SERVER["APP_POOL_ID"]);
-        $server = reset(array_filter($server));
-        $server = empty($server) ? "NO.SERVER.NAME" : strtolower($server);
+        // Get server info (has protocol + domain)
+        global $redcap_base_url;
         
         // Loop over every pid using this EM
         foreach($this->getProjectsWithModuleEnabled() as $pid) {
             
             // Act like we are in that project, make a link, call core function
             $_GET['pid'] = $pid;
-            $link = "{$protocol}://$server/redcap/redcap_v".REDCAP_VERSION."/DataQuality/resolve.php?pid=$pid&status_type=OPEN";
+            $link = "{$redcap_base_url}redcap_v".REDCAP_VERSION."/DataQuality/resolve.php?pid=$pid&status_type=OPEN";
             $this->checkForReminders( $pid, $link );
         }
-
+        
         // Put the pid back the way it was before this cron job
         // likely doesn't matter, but is good housekeeping practice
         $_GET['pid'] = $originalPid;
@@ -82,13 +78,18 @@ class DataResolutionReminder extends AbstractExternalModule {
         }
         
         // Gather all valid Status IDs for project ID
-        $sql = 'SELECT status_id 
+        $sql = 'SELECT status_id, field_name, event_id, instance, record
                 FROM redcap_data_quality_status 
                 WHERE project_id = ?';
         $result = $this->query($sql, [$project_id]);
         $statusIDs = [];
         while($row = $result->fetch_assoc()){
-            $statusIDs[] = $row['status_id'];
+            $statusIDs[$row['status_id']] = [
+                'field'    => $row['field_name'],
+                'event'    => $row['event_id'],
+                'instance' => $row['instance'],
+                'record'   => $row['record']
+            ];
         }
         
         // Loop over the user lists and conditionally send emails
@@ -98,7 +99,7 @@ class DataResolutionReminder extends AbstractExternalModule {
             $freq = $settings['frequency'][$index];
             $sent = $settings['sent'][$index];
             $dag = array_filter($settings['dag'][$index]);
-            $sendComment = $settings['comment'][$index];
+            $sendDetails = $settings['details'][$index];
             
             if ( empty($condition) || empty($days) || empty($freq) || empty($userList) ) {
                 continue; // We need every setting
@@ -132,10 +133,10 @@ class DataResolutionReminder extends AbstractExternalModule {
             // Prep for our query to find open DQs
             $query = $this->createQuery();
             $query->add('
-                SELECT ts, user_id, comment
+                SELECT ts, user_id, comment, status_id
                 FROM redcap_data_quality_resolutions 
-                WHERE current_query_status = "OPEN" AND');
-            $query->addInClause('status_id', $statusIDs)->add('AND');
+                WHERE current_query_status = "OPEN" AND response_requested = "1" AND');
+            $query->addInClause('status_id', array_keys($statusIDs))->add('AND');
 
             $userIds = array_combine(array_keys($projectUsers),array_column($projectUsers, 'id'));
             $result = [];
@@ -159,33 +160,55 @@ class DataResolutionReminder extends AbstractExternalModule {
             while($row = $result->fetch_assoc()){
                 if ( $now > date("Y-m-d h:i", strtotime($row['ts'] . " + $days days")) ) {
                     $sendEmail = true;
-                    if ( !$sendComment ) {
+                    if ( !$sendDetails ) {
                         break;
                     } else {
-                        $comments[] = $row['comment'];
+                        $comments[$row['status_id']] = $row['comment'];
                     }
                 }
             }
             
-            // Send the email and set flag to save
-            if ( $sendEmail ) {
-                foreach ( $userList as $user ) {
-                    $to = $projectUsers[$user]['email'];
-                    $from = $project_contact_email;
-                    $subject = "[REDCap] Data query reminder";
-                    $link = "<a href=\"$project_link\">$projectName</a>";
-                    $msg = "There are open data queries in the REDCap project \"$link\" that need to be addressed.";
-                    if ( !empty($comments) ) {
-                        $msg = "$msg<br><br>Data Query Comments:<br>";
-                        foreach ( $comments as $comment ) {
-                            $msg = "$msg<p style='margin-left: 2em'>$comment</p>";
-                        }
-                    }
-                    REDCap::email($to, $from, $subject, $msg);
-                }
-                $sentSetting[$index] = $now; 
-                $updateProjectSetting = true;
+            // Skip to next if nothing to send
+            if ( !$sendEmail ) {
+                continue;
             }
+            
+            // Send the email and set flag to save
+            foreach ( $userList as $user ) {
+                $to = $projectUsers[$user]['email'];
+                $from = $project_contact_email;
+                $subject = "[REDCap] Data query reminder";
+                $link = "<a href=\"$project_link\">$projectName</a>";
+                $msg = "There are open data queries in the REDCap project \"$link\" that need to be addressed.";
+                if ( !empty($comments) ) {
+                    $msg = "$msg<br><br><style>th, td { padding-left: 1%; padding-right: 1% }</style>
+                      <table style='border:none'>
+                        <thead>
+                          <tr>
+                            <th>Record</th>
+                            <th>Field</th>
+                            <th>Event</th>
+                            <th>Instance</th>
+                            <th>Recent Comment</th>
+                          </tr>
+                        </thead>
+                        <tbody>";
+                    foreach ( $comments as $id => $comment ) {
+                        $msg = "$msg
+                          <tr>
+                            <td>{$statusIDs[$id]['record']}</td>
+                            <td>{$statusIDs[$id]['field']}</td>
+                            <td>{$statusIDs[$id]['event']}</td>
+                            <td>{$statusIDs[$id]['instance']}</td>
+                            <td>{$comment}</td>
+                          </tr>";
+                    }
+                    $msg = "$msg</tbody></table>";
+                }
+                REDCap::email($to, $from, $subject, $msg);
+            }
+            $sentSetting[$index] = $now; 
+            $updateProjectSetting = true;
         }
         
         // We've flipped through all of the userLits in the project
