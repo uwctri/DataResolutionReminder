@@ -6,7 +6,7 @@ DataResolutionReminder can send email reminders to project users to remind them 
 
 ## Installing
 
-This EM isn't yet available to install via redcap's EM database so you'll need to install to your modules folder (i.e. `redcap/modules/data_resolution_reminder_v1.0.0`) manually.
+You can install the module from the REDCap EM repo or drop it directly in your modules folder (i.e. `redcap/modules/data_resolution_reminder_v1.0.0`) manually.
 
 ## Configuration
 
