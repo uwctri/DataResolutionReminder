@@ -52,7 +52,7 @@ class DataResolutionReminder extends AbstractExternalModule {
         $settings = $this->getProjectSettings();
         $sentSetting = $settings['sent'];
         $updateProjectSetting = false;
-        $now = date("Y-m-d h:i");
+        $now = date("Y-m-d H:i");
         $projectName = $this->getTitle();
         
         // Gather User IDs and reformat
@@ -100,11 +100,7 @@ class DataResolutionReminder extends AbstractExternalModule {
                 continue; // We need every setting, except days which we parse to int (i.e. ""->0)
             }
             
-            if ( $sent != "" && $freq == 0 ) {
-                continue; // Send only once, skip
-            }
-            
-            if ( $sent != "" && $now < date('Y-m-d h:i', strtotime("$sent + $freq days")) ) {
+            if ( $sent != "" && $now < date('Y-m-d H:i', strtotime("$sent + $freq days")) ) {
                 continue; // Not enough time has passed to send the next reminder
             }
             
@@ -156,7 +152,7 @@ class DataResolutionReminder extends AbstractExternalModule {
             $sendEmail = false;
             $comments = [];
             while($row = $result->fetch_assoc()){
-                $ts = date("Y-m-d h:i", strtotime($row['ts'] . " + $days days"));
+                $ts = date("Y-m-d H:i", strtotime($row['ts'] . " + $days days"));
                 if ( in_array($row['user_id'], $userIds) && $now > $ts ) {
                     $sendEmail = true;
                     if ( !$sendDetails ) {
