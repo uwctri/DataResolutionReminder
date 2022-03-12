@@ -43,10 +43,6 @@
                     "type": "radio",
                     "choices": [
                         {
-                            "name": "Once",
-                            "value": 0
-                        },
-                        {
                             "name": "Daily",
                             "value": 1
                         },
