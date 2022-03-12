@@ -3,7 +3,6 @@
 namespace UWMadison\DataResolutionReminder;
 use ExternalModules\AbstractExternalModule;
 use REDCap;
-use User;
 
 class DataResolutionReminder extends AbstractExternalModule {
     
@@ -54,16 +53,10 @@ class DataResolutionReminder extends AbstractExternalModule {
         $sentSetting = $settings['sent'];
         $updateProjectSetting = false;
         $now = date("Y-m-d h:i");
-        
-        // Fetch project title (getProjectTitle doesn't work in crons)
-        $sql = 'SELECT app_title
-                FROM redcap_projects
-                WHERE project_id = ?';
-        $result = $this->query($sql, [$project_id]);
-        $projectName = $result->fetch_assoc()['app_title'];
+        $projectName = $this->getTitle();
         
         // Gather User IDs and reformat
-        $users = array_values(User::getProjectUsernames(null,false,$project_id));
+        $users = array_map(function($obj){ return $obj->getUsername(); }, $this->getUsers() );
         $query = $this->createQuery();
         $query->add('
             SELECT ui_id, username, user_email
@@ -94,17 +87,17 @@ class DataResolutionReminder extends AbstractExternalModule {
             ];
         }
         
-        // Loop over the user lists and conditionally send emails
+        // Loop over all setting groups (using freq for no real reason)
         foreach($settings['frequency'] as $index => $freq) {
             $condition = $settings['condition'][$index];
-            $days = $settings['days'][$index];
+            $days = intval($settings['days'][$index]);
             $userList = $settings['user'][$index];
             $sent = $settings['sent'][$index];
             $dag = array_filter($settings['dag'][$index]);
             $sendDetails = $settings['details'][$index];
             
-            if ( empty($condition) || (empty($days) && $days != '0') || empty($freq) || (empty($userList) && empty($dag)) ) {
-                continue; // We need every setting
+            if ( empty($condition) || empty($freq) || (empty($userList) && empty($dag)) ) {
+                continue; // We need every setting, except days which we parse to int (i.e. ""->0)
             }
             
             if ( $sent != "" && $freq == 0 ) {
