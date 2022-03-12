@@ -2,20 +2,22 @@
 
 namespace UWMadison\DataResolutionReminder;
 use ExternalModules\AbstractExternalModule;
-use Redcap;
+use REDCap;
 use User;
 
 class DataResolutionReminder extends AbstractExternalModule {
     
     /*
-     *Redcap hook to load for config page to cleanup the EM's menu
+     *Redcap hook to load trivial css on project's config page
      */
-    public function redcap_every_page_top ( $project_id ) {
-        if ( $this->isPage('ExternalModules/manager/project.php') && $project_id != NULL) {
-            echo "<script src={$this->getUrl("config.js")}></script>";
+    public function redcap_every_page_top( $project_id ) {
+        if ( $this->isPage("ExternalModules/manager/project.php") && $project_id != NULL) {
+            ?> <style>.external-modules-input-element[value="1"][name^="condition"] {
+                translate: 0 -10px;
+            }</style><?php
         }
     }
-    
+
     /*
      *Redcap cron
      */
@@ -166,9 +168,8 @@ class DataResolutionReminder extends AbstractExternalModule {
                     $sendEmail = true;
                     if ( !$sendDetails ) {
                         break;
-                    } else {
-                        $comments[$row['status_id']] = $row['comment'];
                     }
+                    $comments[$row['status_id']] = $row['comment'];
                 }
             }
             
