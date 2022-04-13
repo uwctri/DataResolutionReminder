@@ -87,16 +87,21 @@ class DataResolutionReminder extends AbstractExternalModule {
             ];
         }
         
+        // If we have no status IDs then bail
+        if ( empty($statusIDs) ) {
+            return;
+        }
+        
         // Loop over all setting groups (using freq for no real reason)
         foreach($settings['frequency'] as $index => $freq) {
             $condition = $settings['condition'][$index];
             $days = intval($settings['days'][$index]);
             $userList = $settings['user'][$index];
             $sent = $settings['sent'][$index];
-            $dag = array_filter($settings['dag'][$index]);
+            $dagList = array_filter($settings['dag'][$index]);
             $sendDetails = $settings['details'][$index];
             
-            if ( empty($condition) || empty($freq) || (empty($userList) && empty($dag)) ) {
+            if ( empty($condition) || empty($freq) || (empty($userList) && empty($dagList)) ) {
                 continue; // We need every setting, except days which we parse to int (i.e. ""->0)
             }
             
@@ -105,21 +110,24 @@ class DataResolutionReminder extends AbstractExternalModule {
             }
             
             // Expand userList to include those in DAGs
-            if ( !empty($dag) ) {
+            if ( !empty($dagList) ) {
                 $query = $this->createQuery();
                 $query->add('
                     SELECT username 
                     FROM redcap_data_access_groups_users 
                     WHERE');
-                $query->addInClause('group_id', $dag);
+                $query->addInClause('group_id', $dagList);
                 $result = $query->execute();
                 while($row = $result->fetch_assoc()){
                     $userList[] = $row['username'];
                 }
             }
             
-            // Remove any duplicates from the user list
+            // Remove any duplicates from the user list and check it
             $userList = array_filter(array_unique($userList));
+            if ( empty($userList) ) {
+                continue;
+            }
             
             // Prep for our query to find open DQs
             // Here we opt to avoid using addInClause due to the complexity of the sql
@@ -201,10 +209,12 @@ class DataResolutionReminder extends AbstractExternalModule {
             // Send the email and set flag to save
             foreach ( $userList as $user ) {
                 $to = $projectUsers[$user]['email'];
-                REDCap::email($to, $from, $subject, $msg);
+                if ( !empty($to) ) {
+                    $sentSetting[$index] = $now; 
+                    $updateProjectSetting = true;
+                    REDCap::email($to, $from, $subject, $msg);
+                }
             }
-            $sentSetting[$index] = $now; 
-            $updateProjectSetting = true;
         }
         
         // We've flipped through all of the userLits in the project
