@@ -6,31 +6,28 @@
         {
             "name": "Adam Nunez",
             "email": "Adam.Nunez@ctri.wisc.edu",
-            "institution": "UW Madison - Center for Tobacco Research and Intervention "
+            "institution": "UW Madison - Center for Tobacco Research and Intervention"
         }
     ],
-    "framework-version": 8,
-    "permissions": [
-        "redcap_every_page_top"
-    ],
+    "framework-version": 13,
     "project-settings": [
         {
-             "key": "group",
-             "name": "<b>Notification Group</b>",
-             "type": "sub_settings",
-             "repeatable": true,
-             "sub_settings":[
+            "key": "group",
+            "name": "<b>Notification Group</b>",
+            "type": "sub_settings",
+            "repeatable": true,
+            "sub_settings": [
                 {
                     "key": "user",
                     "name": "<b>Notify User(s)</b>",
                     "type": "user-list",
-                    "repeatable":true
+                    "repeatable": true
                 },
                 {
                     "key": "dag",
                     "name": "<b>Notify DAG(s)</b>",
                     "type": "dag-list",
-                    "repeatable":true
+                    "repeatable": true
                 },
                 {
                     "key": "days",
@@ -62,7 +59,7 @@
                     "type": "radio",
                     "choices": [
                         {
-                            "name": "A user above has an incomplete data query<br>assigned to them",
+                            "name": "A user above has an incomplete data query assigned to them",
                             "value": 1
                         },
                         {
@@ -85,14 +82,14 @@
             ]
         }
     ],
-   "crons": [
-      {
-         "cron_name": "reminders",
-         "cron_description": "Check for reminders that need to be sent",
-         "method": "cron",
-         "cron_frequency": "14400",
-         "cron_max_run_time": "600"
-      }
+    "crons": [
+        {
+            "cron_name": "reminders",
+            "cron_description": "Check for reminders that need to be sent",
+            "method": "cron",
+            "cron_frequency": "14400",
+            "cron_max_run_time": "600"
+        }
     ],
     "compatibility": {
         "redcap-version-min": "12.0.4"

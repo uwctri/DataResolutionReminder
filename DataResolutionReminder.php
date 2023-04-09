@@ -14,9 +14,13 @@ class DataResolutionReminder extends AbstractExternalModule
     public function redcap_every_page_top($project_id)
     {
         if ($this->isPage("ExternalModules/manager/project.php") && $project_id != NULL) {
-            ?> <style>.external-modules-input-element[value="1"][name^="condition"] {
-                translate: 0 -10px;
-            }</style><?php
+?>
+            <style>
+                .external-modules-input-td label {
+                    display: inline;
+                }
+            </style>
+<?php
         }
     }
 
@@ -146,7 +150,7 @@ class DataResolutionReminder extends AbstractExternalModule
                 (SELECT MAX(res_id) as res_id, status_id FROM redcap_data_quality_resolutions GROUP BY status_id) AS A
                 JOIN 
                 (SELECT res_id, status_id, ts, user_id, comment FROM redcap_data_quality_resolutions WHERE current_query_status = "OPEN" AND response_requested = "1" AND status_id IN (' . $statusString . ') ) AS B
-                ON A.res_id=B.res_id');
+                ON A.res_id=B.res_id', []);
             $result = $query->execute();
 
             $userIds = array_combine(array_keys($projectUsers), array_column($projectUsers, 'id'));
