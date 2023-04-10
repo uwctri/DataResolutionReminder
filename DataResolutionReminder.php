@@ -144,13 +144,13 @@ class DataResolutionReminder extends AbstractExternalModule
             // Here we opt to avoid using addInClause due to the complexity of the sql
             // We find open DQs for all users of the project, we check user below
             $query = $this->createQuery();
-            $statusString = implode(',', array_keys($statusIDs));
+            $statusString = implode(',', array_fill(0, count($statusIDs), '?'));
             $query->add('
                 SELECT A.res_id, A.status_id, B.ts, B.user_id, B.comment FROM 
                 (SELECT MAX(res_id) as res_id, status_id FROM redcap_data_quality_resolutions GROUP BY status_id) AS A
                 JOIN 
                 (SELECT res_id, status_id, ts, user_id, comment FROM redcap_data_quality_resolutions WHERE current_query_status = "OPEN" AND response_requested = "1" AND status_id IN (' . $statusString . ') ) AS B
-                ON A.res_id=B.res_id', []);
+                ON A.res_id=B.res_id', array_keys($statusIDs));
             $result = $query->execute();
 
             $userIds = array_combine(array_keys($projectUsers), array_column($projectUsers, 'id'));
