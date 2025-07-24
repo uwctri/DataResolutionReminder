@@ -187,6 +187,7 @@ class DataResolutionReminder extends AbstractExternalModule
             }
 
             // Build out the email
+            global $project_contact_email;
             $from = $project_contact_email;
             $subject = "[REDCap] Data query reminder";
             $link = "<a href=\"$project_link\">$projectName</a>";

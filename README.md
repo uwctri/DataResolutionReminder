@@ -10,13 +10,9 @@ You can install the module from the REDCap EM repo or drop it directly in your m
 
 ## Configuration
 
-Configuration is simple: 
+Configuration is simple:
 
 1. Define users and/or DAG groups to notify
 2. Set number of days after the query is created to send the reminder
 3. Should the reminder be sent once, daily, or weekly?
 4. Should the reminder be sent for any user on the project, or only a specifc group/single user.
-
-## Call Outs
-
-* None yet
