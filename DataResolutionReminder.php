@@ -19,6 +19,10 @@ class DataResolutionReminder extends AbstractExternalModule
                 .external-modules-input-td label {
                     display: inline;
                 }
+
+                .sub_start[field$=-em-drr] td {
+                    background-color: #e6e6e6;
+                }
             </style>
 <?php
         }
@@ -29,7 +33,6 @@ class DataResolutionReminder extends AbstractExternalModule
      */
     public function cron($cronInfo)
     {
-
         // Stash original PID, probably not needed, but docs recommend
         $originalPid = $_GET['pid'];
 
@@ -42,7 +45,8 @@ class DataResolutionReminder extends AbstractExternalModule
             // Act like we are in that project, make a link, call core function
             $_GET['pid'] = $pid;
             $link = "{$redcap_base_url}redcap_v" . REDCAP_VERSION . "/DataQuality/resolve.php?pid=$pid&status_type=OPEN";
-            $this->checkForReminders($pid, $link);
+            $this->checkForSelfReminders($pid, $link);
+            $this->checkForGroupReminders($pid, $link);
         }
 
         // Put the pid back the way it was before this cron job
@@ -52,18 +56,88 @@ class DataResolutionReminder extends AbstractExternalModule
     }
 
     /*
-     *Core functionality, check a pid for DQ reminders and send emails
+     *Core functionality, send users reminders if they own an open data query
      */
-    private function checkForReminders($project_id, $project_link)
+    private function checkForSelfReminders($project_id, $project_link)
     {
+        $enable = $this->getProjectSetting("self_send", $project_id);
+        if (!$enable) {
+            return;
+        }
 
-        // Gather project settings
-        $settings = $this->getProjectSettings($project_id);
-        $sentSetting = $settings['sent'];
-        $updateProjectSetting = false;
-        $now = date("Y-m-d H:i");
         $projectName = $this->getTitle();
+        $sent = $this->getProjectSetting("self_sent", $project_id);
+        $frequency = $this->getProjectSetting("self_frequency", $project_id) ?? 7; // Default to 7 days if not set
+        $hour = intval($this->getProjectSetting("self_hour", $project_id) ?? "9"); // Default to 9 AM if not set
+        $hour = max(0, min(23, $hour)); // Ensure hour is between 0 and 23
+        $now = date("Y-m-d") . " $hour:00";
 
+        if (!empty($sent) && date('Y-m-d H:i', strtotime("$sent + {$frequency} days")) > $now) {
+            return; // Not enough time has passed to send the next reminder
+        }
+
+        $statusIDs = $this->getProjectResolutions($project_id, true);
+
+        // If we have no status IDs then bail
+        if (empty($statusIDs)) {
+            return;
+        }
+
+        // Regroup by user, include only open statuses
+        $users = $this->getProjectUsers();
+        $map_id_name = array_combine(array_column($users, 'id'), array_keys($users));
+        $statusIDs = array_filter($statusIDs, function ($status) {
+            return $status['open'];
+        });
+        $userStatusIDs = [];
+        foreach ($statusIDs as $id => $status) {
+            $user_id = $status['user'];
+            $userStatusIDs[$map_id_name[$user_id]][$id] = $status;
+        }
+
+        // Loop over each user with a status ID
+        foreach ($userStatusIDs as $user => $statuses) {
+            $link = "<a href=\"$project_link\">$projectName</a>";
+            $msg = "There are open data queries in the REDCap project \"$link\" that need to be addressed.";
+            $this->sendEmail($users[$user]['email'], $msg);
+        }
+
+        // Update the project setting to reflect that we sent a reminder
+        $this->setProjectSetting("sent", $now, $project_id);
+    }
+
+    /*
+     *Util: Get all project data quality resolutions
+     */
+    private function getProjectResolutions($project_id, $requireUser = false)
+    {
+        // Gather all valid Status IDs for project ID
+        $sql = 'SELECT status_id, field_name, event_id, instance, record, assigned_user_id, query_status
+                FROM redcap_data_quality_status 
+                WHERE project_id = ?';
+        if ($requireUser) {
+            $sql .= ' AND user_id IS NOT NULL';
+        }
+        $result = $this->query($sql, [$project_id]);
+        $statusIDs = [];
+        while ($row = $result->fetch_assoc()) {
+            $statusIDs[$row['status_id']] = [
+                'field'    => $row['field_name'],
+                'event'    => $row['event_id'],
+                'instance' => $row['instance'],
+                'record'   => $row['record'],
+                'user'     => $row['assigned_user_id'],
+                'open'     => $row['query_status'] === 'OPEN'
+            ];
+        }
+        return $statusIDs;
+    }
+
+    /*
+     *Util: Get all users in the project, reformat to username => [id, email]
+     */
+    private function getProjectUsers()
+    {
         // Gather User IDs and reformat
         $users = array_map(function ($obj) {
             return $obj->getUsername();
@@ -82,21 +156,34 @@ class DataResolutionReminder extends AbstractExternalModule
                 'email' => $row['user_email']
             ];
         }
+        return $projectUsers;
+    }
 
-        // Gather all valid Status IDs for project ID
-        $sql = 'SELECT status_id, field_name, event_id, instance, record
-                FROM redcap_data_quality_status 
-                WHERE project_id = ?';
-        $result = $this->query($sql, [$project_id]);
-        $statusIDs = [];
-        while ($row = $result->fetch_assoc()) {
-            $statusIDs[$row['status_id']] = [
-                'field'    => $row['field_name'],
-                'event'    => $row['event_id'],
-                'instance' => $row['instance'],
-                'record'   => $row['record']
-            ];
-        }
+    /*
+     *Util: Basic wrapper for sending emails
+     */
+    private function sendEmail($to, $msg)
+    {
+        global $project_contact_email;
+        $from = $project_contact_email;
+        $subject = "[REDCap] Data query reminder";
+        REDCap::email($to, $from, $subject, $msg);
+    }
+
+    /*
+     *Core functionality, check a pid for DQ reminders and send emails
+     */
+    private function checkForGroupReminders($project_id, $project_link)
+    {
+        // Gather project settings
+        $settings = $this->getProjectSettings($project_id);
+        $sentSetting = $settings['sent'];
+        $updateProjectSetting = false;
+        $now = date("Y-m-d H:i");
+        $projectName = $this->getTitle();
+
+        $projectUsers = $this->getProjectUsers();
+        $statusIDs = $this->getProjectResolutions($project_id);
 
         // If we have no status IDs then bail
         if (empty($statusIDs)) {
@@ -232,7 +319,7 @@ class DataResolutionReminder extends AbstractExternalModule
         // We've flipped through all of the userLits in the project
         // Update the project setting if anything was sent
         if ($updateProjectSetting) {
-            $this->setProjectSetting("sent", $sentSetting);
+            $this->setProjectSetting("sent", $sentSetting, $project_id);
         }
     }
 }

@@ -10,7 +10,7 @@ You can install the module from the REDCap EM repo or drop it directly in your m
 
 ## Configuration
 
-Configuration is simple:
+Configuration is fairly simple, you can either send reminders to the assigned owners of open issues (Basic Settings in the configuration), or create custom notifcation groups which require the below information.
 
 1. Define users and/or DAG groups to notify
 2. Set number of days after the query is created to send the reminder

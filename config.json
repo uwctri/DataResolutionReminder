@@ -12,7 +12,55 @@
     "framework-version": 16,
     "project-settings": [
         {
-            "key": "group",
+            "key": "descriptive-one",
+            "name": "To notify assigned owners of unresolved data queries, use the Basic Settings below. Use a custom Notification Group to specify additional recipients, or route all reminders to a specific user or DAG.",
+            "type": "descriptive"
+        },
+        {
+            "key": "basic-em-drr",
+            "name": "<b>Basic Settings</b>",
+            "type": "sub_settings",
+            "repeatable": false,
+            "sub_settings": [
+                {
+                    "key": "self_send",
+                    "name": "<b>Notify Assigned Owners</b>",
+                    "type": "checkbox"
+                },
+                {
+                    "key": "self_frequency",
+                    "name": "<b>Frequency of reminder</b>",
+                    "type": "radio",
+                    "choices": [
+                        {
+                            "name": "Daily",
+                            "value": 1
+                        },
+                        {
+                            "name": "Weekly",
+                            "value": 7
+                        },
+                        {
+                            "name": "Monthly",
+                            "value": 30
+                        }
+                    ]
+                },
+                {
+                    "key": "self_hour",
+                    "name": "<b>Sending Hour:</b><br>(24-hour format, defaults to 9 AM)",
+                    "type": "text"
+                },
+                {
+                    "key": "self_sent",
+                    "name": "Most Recent Reminder",
+                    "type": "text",
+                    "hidden": true
+                }
+            ]
+        },
+        {
+            "key": "group-em-drr",
             "name": "<b>Notification Group</b>",
             "type": "sub_settings",
             "repeatable": true,
