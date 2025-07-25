@@ -116,7 +116,7 @@ class DataResolutionReminder extends AbstractExternalModule
                 FROM redcap_data_quality_status 
                 WHERE project_id = ?';
         if ($requireUser) {
-            $sql .= ' AND user_id IS NOT NULL';
+            $sql .= ' AND assigned_user_id IS NOT NULL';
         }
         $result = $this->query($sql, [$project_id]);
         $statusIDs = [];
