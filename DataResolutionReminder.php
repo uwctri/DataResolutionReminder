@@ -103,7 +103,7 @@ class DataResolutionReminder extends AbstractExternalModule
         }
 
         // Update the project setting to reflect that we sent a reminder
-        $this->setProjectSetting("sent", $now, $project_id);
+        $this->setProjectSetting("self_sent", $now, $project_id);
     }
 
     /*
