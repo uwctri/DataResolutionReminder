@@ -67,12 +67,13 @@ class DataResolutionReminder extends AbstractExternalModule
 
         $projectName = $this->getTitle();
         $sent = $this->getProjectSetting("self_sent", $project_id);
-        $frequency = $this->getProjectSetting("self_frequency", $project_id) ?? 7; // Default to 7 days if not set
-        $hour = intval($this->getProjectSetting("self_hour", $project_id) ?? "9"); // Default to 9 AM if not set
+        $frequency = $this->getProjectSetting("self_frequency", $project_id)[0] ?? 7; // Default to 7 days if not set
+        $hour = intval($this->getProjectSetting("self_hour", $project_id)[0] ?? "9"); // Default to 9 AM if not set
         $hour = max(0, min(23, $hour)); // Ensure hour is between 0 and 23
+        $hour = str_pad($hour, 2, '0', STR_PAD_LEFT); // Pad hour to two digits
         $now = date("Y-m-d") . " $hour:00";
-
-        if (!empty($sent) && date('Y-m-d H:i', strtotime("$sent + {$frequency} days")) > $now) {
+        $target = date('Y-m-d H:00', strtotime("$sent + $frequency days"));
+        if (!empty($sent) && $target > $now) {
             return; // Not enough time has passed to send the next reminder
         }
 
@@ -103,7 +104,7 @@ class DataResolutionReminder extends AbstractExternalModule
         }
 
         // Update the project setting to reflect that we sent a reminder
-        $this->setProjectSetting("self_sent", $now, $project_id);
+        $this->setProjectSetting("self_sent", date("Y-m-d H:00"), $project_id);
     }
 
     /*
