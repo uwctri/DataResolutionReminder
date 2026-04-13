@@ -33,25 +33,17 @@ class DataResolutionReminder extends AbstractExternalModule
      */
     public function cron($cronInfo)
     {
-        // Stash original PID, probably not needed, but docs recommend
-        $originalPid = $_GET['pid'];
-
         // Get server info (has protocol + domain)
         global $redcap_base_url;
 
         // Loop over every pid using this EM
         foreach ($this->getProjectsWithModuleEnabled() as $pid) {
-
-            // Act like we are in that project, make a link, call core function
-            $_GET['pid'] = $pid;
             $link = "{$redcap_base_url}redcap_v" . REDCAP_VERSION . "/DataQuality/resolve.php?pid=$pid&status_type=OPEN";
+            $this->setProjectId($pid);
             $this->checkForSelfReminders($pid, $link);
             $this->checkForGroupReminders($pid, $link);
         }
 
-        // Put the pid back the way it was before this cron job
-        // likely doesn't matter, but is good housekeeping practice
-        $_GET['pid'] = $originalPid;
         return "The \"{$cronInfo['cron_description']}\" cron job completed successfully.";
     }
 
