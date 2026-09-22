@@ -77,7 +77,7 @@ class DataResolutionReminder extends AbstractExternalModule
         }
 
         // Regroup by user, include only open statuses
-        $users = $this->getProjectUsers();
+        $users = $this->getProjectUsers($project_id);
         $map_id_name = array_combine(array_column($users, 'id'), array_keys($users));
         $statusIDs = array_filter($statusIDs, function ($status) {
             return $status['open'];
@@ -85,14 +85,18 @@ class DataResolutionReminder extends AbstractExternalModule
         $userStatusIDs = [];
         foreach ($statusIDs as $id => $status) {
             $user_id = $status['user'];
-            $userStatusIDs[$map_id_name[$user_id]][$id] = $status;
+            if (isset($map_id_name[$user_id])) {
+                $userStatusIDs[$map_id_name[$user_id]][$id] = $status;
+            }
         }
 
         // Loop over each user with a status ID
         foreach ($userStatusIDs as $user => $statuses) {
-            $link = "<a href=\"$project_link\">$projectName</a>";
-            $msg = "There are open data queries in the REDCap project \"$link\" that need to be addressed.";
-            $this->sendEmail($users[$user]['email'], $msg);
+            if (!empty($users[$user]['email'])) {
+                $link = "<a href=\"$project_link\">$projectName</a>";
+                $msg = "There are open data queries in the REDCap project \"$link\" that need to be addressed.";
+                $this->sendEmail($users[$user]['email'], $msg);
+            }
         }
 
         // Update the project setting to reflect that we sent a reminder
@@ -129,25 +133,27 @@ class DataResolutionReminder extends AbstractExternalModule
     /*
      *Util: Get all users in the project, reformat to username => [id, email]
      */
-    private function getProjectUsers()
+    private function getProjectUsers($project_id = null)
     {
-        // Gather User IDs and reformat
-        $users = array_map(function ($obj) {
-            return $obj->getUsername();
-        }, $this->getUsers());
-        $query = $this->createQuery();
-        $query->add('
-            SELECT ui_id, username, user_email
-            FROM redcap_user_information
-            WHERE');
-        $query->addInClause('username', $users);
-        $result = $query->execute();
+        if ($project_id === null) {
+            $project_id = $this->getProjectId();
+        }
+
+        $sql = 'SELECT ui.ui_id, ui.username, ui.user_email, ur.username AS rights_username
+                FROM redcap_user_rights ur
+                JOIN redcap_user_information ui ON LOWER(ur.username) = LOWER(ui.username)
+                WHERE ur.project_id = ?';
+        $result = $this->query($sql, [$project_id]);
         $projectUsers = [];
         while ($row = $result->fetch_assoc()) {
-            $projectUsers[$row['username']] = [
+            $userData = [
                 'id' => $row['ui_id'],
                 'email' => $row['user_email']
             ];
+            $projectUsers[$row['username']] = $userData;
+            if (!empty($row['rights_username']) && $row['rights_username'] !== $row['username']) {
+                $projectUsers[$row['rights_username']] = $userData;
+            }
         }
         return $projectUsers;
     }
@@ -175,7 +181,7 @@ class DataResolutionReminder extends AbstractExternalModule
         $now = date("Y-m-d H:i");
         $projectName = $this->getTitle();
 
-        $projectUsers = $this->getProjectUsers();
+        $projectUsers = $this->getProjectUsers($project_id);
         $statusIDs = $this->getProjectResolutions($project_id);
 
         // If we have no status IDs then bail
@@ -218,6 +224,24 @@ class DataResolutionReminder extends AbstractExternalModule
             $userList = array_filter(array_unique($userList));
             if (empty($userList)) {
                 continue;
+            }
+
+            // Ensure any users in userList not already in $projectUsers are loaded
+            $missingUsers = array_diff($userList, array_keys($projectUsers));
+            if (!empty($missingUsers)) {
+                $query = $this->createQuery();
+                $query->add('
+                    SELECT ui_id, username, user_email
+                    FROM redcap_user_information
+                    WHERE');
+                $query->addInClause('username', $missingUsers);
+                $result = $query->execute();
+                while ($row = $result->fetch_assoc()) {
+                    $projectUsers[$row['username']] = [
+                        'id' => $row['ui_id'],
+                        'email' => $row['user_email']
+                    ];
+                }
             }
 
             // Prep for our query to find open DQs
@@ -300,7 +324,7 @@ class DataResolutionReminder extends AbstractExternalModule
 
             // Send the email and set flag to save
             foreach ($userList as $user) {
-                $to = $projectUsers[$user]['email'];
+                $to = $projectUsers[$user]['email'] ?? null;
                 if (!empty($to)) {
                     $sentSetting[$index] = $now;
                     $updateProjectSetting = true;
